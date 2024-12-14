@@ -3,6 +3,7 @@ using Moq;
 
 namespace AuthenticationService.Tests;
 
+
 [TestClass]
 public class AuthServiceTests
 {

@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using System.Reflection;
 using MiniTest;
 using System.Runtime.InteropServices;
+using System.Data;
 
 namespace MiniTestRunner;
 //zastanowic sie z ta niekomaptybilna konfiguracja 
@@ -13,14 +14,16 @@ public class DiscoveredTestMethod
 {
     public MethodInfo TestMethod { get; set; }
     public int Priority { get; set; }
+    public string? Description { get; set; }
     public object?[]? DataRow { get; set; } 
 
-    public DiscoveredTestMethod(MethodInfo testMethod, int priority, object?[]? dataRow)
+    public DiscoveredTestMethod(MethodInfo testMethod, int priority, object?[]? dataRow, string? description)
     {
        
         TestMethod = testMethod;
         Priority = priority;
         DataRow = dataRow;
+        Description = description;
     }
 }
 public class DiscoveredTestClass
@@ -29,12 +32,14 @@ public class DiscoveredTestClass
     public Action? BeforeEach { get; set; }
     public Action? AfterEach { get; set; }
     public int Priority { get; set; }
-    public DiscoveredTestClass (Type testClass, Action? beforeEach, Action? afterEach, int priority)
+    public string? Description { get; set; }
+    public DiscoveredTestClass (Type testClass, Action? beforeEach, Action? afterEach, int priority, string? description)
     {
         TestClass = testClass;
         BeforeEach = beforeEach;
         AfterEach = afterEach;
         Priority = priority;
+        Description = description;
     }
 }
 public static class TestDiscovery
@@ -65,8 +70,10 @@ public static class TestDiscovery
             var testClass = type;
             var classPriorityAttribute = type.GetCustomAttribute<PriorityAttribute>();
             int classPriority = classPriorityAttribute?.Priority ?? 0;
+            var classDescriptionAttribute = type.GetCustomAttribute<DescriptionAttribute>();
+            var classDescription = classDescriptionAttribute?.Description ?? null;
             // to bedzie klucz w slowniku
-            DiscoveredTestClass discoveredTestClass = new DiscoveredTestClass(testClass, beforeEach, afterEach, classPriority);
+            DiscoveredTestClass discoveredTestClass = new DiscoveredTestClass(testClass, beforeEach, afterEach, classPriority, classDescription);
             //tu bede trzymal metody do przetestowania
             List<DiscoveredTestMethod> discoveredTestMethods = new List<DiscoveredTestMethod>(); 
             foreach(var method in testClass.GetMethods())
@@ -77,27 +84,38 @@ public static class TestDiscovery
                 var methodPriorityAttribute = method.GetCustomAttribute<PriorityAttribute>();
                 int methodPriority = methodPriorityAttribute?.Priority ?? 0;
                 var dataRowAttributes = method.GetCustomAttributes<DataRowAttribute>();
-                if (dataRowAttributes.Any())
-                {
-                    // jesli sa te atrybuty to dla kazdego zrob osobny test
-                    foreach(var dataRow in dataRowAttributes)
+                var dataRow = dataRowAttributes?.ToArray();
+                var methodDescriptionAttribute = method.GetCustomAttribute<DescriptionAttribute>();
+                var methodDescription = methodDescriptionAttribute?.Description ?? null;
+                discoveredTestMethods.Add(new DiscoveredTestMethod(
+                           testMethod,
+                           methodPriority,
+                           dataRow,
+                           methodDescription
+                           ));
+                /*    if (dataRowAttributes.Any())
                     {
+                        // jesli sa te atrybuty to dla kazdego zrob osobny test
+                        foreach(var dataRow in dataRowAttributes)
+                        {
+                            discoveredTestMethods.Add(new DiscoveredTestMethod(
+                                testMethod,
+                                methodPriority,
+                                dataRow.Data,
+                                methodDescription
+                                ));
+                        }
+                    }
+                    else
+                    {
+                        //dodaje pojedyny test i elo
                         discoveredTestMethods.Add(new DiscoveredTestMethod(
                             testMethod,
                             methodPriority,
-                            dataRow.Data
+                            null,
+                            methodDescription
                             ));
-                    }
-                }
-                else
-                {
-                    //dodaje pojedyny test i elo
-                    discoveredTestMethods.Add(new DiscoveredTestMethod(
-                        testMethod,
-                        methodPriority,
-                        null
-                        ));
-                }
+                    } */
             }
             discoveredTestMethods = discoveredTestMethods
                 .OrderBy(testMethod => testMethod.Priority)

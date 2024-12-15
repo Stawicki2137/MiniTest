@@ -8,6 +8,8 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\AuthenticationService.Tests\AuthenticationService.Tests.csproj" />
+    <ProjectReference Include="..\AuthenticationService\AuthenticationService.csproj" />
     <ProjectReference Include="..\MiniTest\MiniTest.csproj" />
   </ItemGroup>
 

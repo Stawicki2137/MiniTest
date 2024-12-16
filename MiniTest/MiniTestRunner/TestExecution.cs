@@ -1,4 +1,5 @@
-﻿using System;
+﻿using MiniTest;
+using System;
 using System.Collections.Generic;
 using System.Formats.Tar;
 using System.Linq;
@@ -58,20 +59,29 @@ public static class TestExecution
                     }
                    
                 }
-                catch (Exception ex)
+                //problem 1 nie lapie mi AssertionException 
+                // w aktualnym kodzie wypisze mi samo twoj stary i na koncy pare dobrze 
+                // pora to zdebugowac xd
+                //ok chuj z debugownia wyszedl 
+                catch (AssertionException ex)
                 {
                     classCount.failed++;
                     if (testMethod.Description is not null)
                     {
                         Console.WriteLine($"{testMethod.Description}");
                     }
+                    
                     Console.ForegroundColor = ConsoleColor.Red;
                     Console.WriteLine($"{testMethod.TestMethod.Name.PadRight(60)}: FAILED");
                     Console.ResetColor();
-                    Console.WriteLine(ex.Message);
+                   // Console.WriteLine(ex.Message);
                     //nw juz kurwa
-                   
-                    
+                 
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine("twoj stary");
+                    Console.WriteLine(testMethod.Description); 
                 }
                
             }

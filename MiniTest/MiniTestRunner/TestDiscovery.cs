@@ -84,16 +84,16 @@ public static class TestDiscovery
                 var methodPriorityAttribute = method.GetCustomAttribute<PriorityAttribute>();
                 int methodPriority = methodPriorityAttribute?.Priority ?? 0;
                 var dataRowAttributes = method.GetCustomAttributes<DataRowAttribute>();
-                var dataRow = dataRowAttributes?.ToArray();
+               // var dataRow = dataRowAttributes?.ToArray();
                 var methodDescriptionAttribute = method.GetCustomAttribute<DescriptionAttribute>();
                 var methodDescription = methodDescriptionAttribute?.Description ?? null;
-                discoveredTestMethods.Add(new DiscoveredTestMethod(
+               /* discoveredTestMethods.Add(new DiscoveredTestMethod(
                            testMethod,
                            methodPriority,
                            dataRow,
                            methodDescription
-                           ));
-                /*    if (dataRowAttributes.Any())
+                           )); */
+                    if (dataRowAttributes.Any())
                     {
                         // jesli sa te atrybuty to dla kazdego zrob osobny test
                         foreach(var dataRow in dataRowAttributes)
@@ -115,7 +115,7 @@ public static class TestDiscovery
                             null,
                             methodDescription
                             ));
-                    } */
+                    } 
             }
             discoveredTestMethods = discoveredTestMethods
                 .OrderBy(testMethod => testMethod.Priority)

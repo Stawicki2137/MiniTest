@@ -17,6 +17,7 @@ public static class Assert
         catch (Exception ex) 
         {
                 if (ex is not TException) throw new AssertionException(message);
+                return; // jeszcze sie nad tym zastanwoic 
         }
         throw new AssertionException(message);
     }

@@ -24,8 +24,8 @@ public class AfterEachAttribute : Attribute { }
 // sets a priority (integer) for test prioritization,
 // with lower numerical values indicating higher priority
 [AttributeUsage(AttributeTargets.Method | AttributeTargets.Class)]
-public class PriorityAttribute : Attribute 
-{ 
+public class PriorityAttribute : Attribute
+{
     public int Priority { get; }
     public PriorityAttribute(int priority) => Priority = priority;
 }

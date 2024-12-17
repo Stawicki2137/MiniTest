@@ -9,128 +9,57 @@ using System.Runtime.InteropServices;
 using System.Data;
 
 namespace MiniTestRunner;
-//zastanowic sie z ta niekomaptybilna konfiguracja 
-public class DiscoveredTestMethod
-{
-    public MethodInfo TestMethod { get; set; }
-    public int Priority { get; set; }
-    public string? Description { get; set; }
-    public object?[]? DataRow { get; set; } 
 
-    public DiscoveredTestMethod(MethodInfo testMethod, int priority, object?[]? dataRow, string? description)
-    {
-       
-        TestMethod = testMethod;
-        Priority = priority;
-        DataRow = dataRow;
-        Description = description;
-    }
-}
-public class DiscoveredTestClass
-{
-    public Type TestClass { get; set; }
-    public Action? BeforeEach { get; set; }
-    public Action? AfterEach { get; set; }
-    public int Priority { get; set; }
-    public string? Description { get; set; }
-    public DiscoveredTestClass (Type testClass, Action? beforeEach, Action? afterEach, int priority, string? description)
-    {
-        TestClass = testClass;
-        BeforeEach = beforeEach;
-        AfterEach = afterEach;
-        Priority = priority;
-        Description = description;
-    }
-}
 public static class TestDiscovery
 {
-
-    public static Dictionary<DiscoveredTestClass, List<DiscoveredTestMethod>> DiscoveredTests(Assembly assembly)
+    public static IEnumerable<(Type TestClass, MethodInfo? BeforeEach, MethodInfo? AfterEach,
+        IEnumerable<(MethodInfo Method, object[]? Data)> TestMethods)> DiscoverTests(Assembly assembly)
     {
-        var discoveredTests = new Dictionary<DiscoveredTestClass,List<DiscoveredTestMethod>>();
-        foreach (var type in assembly.GetTypes())
+        foreach (var type in assembly.GetTypes()
+            .Where(t => t.GetCustomAttribute<TestClassAttribute>() is not null))
         {
-            if(type.GetCustomAttributes<TestClassAttribute>() is null)
-                continue;
-            var constructor = type.GetConstructor(Type.EmptyTypes);
-            if (constructor is null)
+            if (type.GetConstructor(Type.EmptyTypes) is null)
             {
-                Console.WriteLine($"Skipping {type.FullName}: no parameterless constructor");
+                // to sie nie wypisze imo i tak ale warto sprobowac xD
+                Console.ForegroundColor = ConsoleColor.Yellow;
+                Console.WriteLine($"[Warning] Skipping {type.FullName}: No parameterless constructor.");
+                Console.ResetColor();
                 continue;
             }
-            var testClassInstance = constructor.Invoke(null);
-            var beforeEachMethod = type.GetMethods()
-                .FirstOrDefault(m => m.GetCustomAttribute<BeforeEachAttribute>() is not null);
-            Action? beforeEach = beforeEachMethod != null ? () => beforeEachMethod.Invoke(testClassInstance, null) : null;
+            var beforeEach = FindMethodWithAttribute<BeforeEachAttribute>(type);
+            var afterEach = FindMethodWithAttribute<AfterEachAttribute>(type);
+            var testMethods = new List<(MethodInfo Method, object[]? Data)>();
 
-            var afterEachMethod = type.GetMethods()
-                .FirstOrDefault(m => m.GetCustomAttribute<AfterEachAttribute>() is not null);
-            Action? afterEach = afterEachMethod != null ? () => afterEachMethod.Invoke(testClassInstance, null) : null;
-
-            var testClass = type;
-            var classPriorityAttribute = type.GetCustomAttribute<PriorityAttribute>();
-            int classPriority = classPriorityAttribute?.Priority ?? 0;
-            var classDescriptionAttribute = type.GetCustomAttribute<DescriptionAttribute>();
-            var classDescription = classDescriptionAttribute?.Description ?? null;
-            // to bedzie klucz w slowniku
-            DiscoveredTestClass discoveredTestClass = new DiscoveredTestClass(testClass, beforeEach, afterEach, classPriority, classDescription);
-            //tu bede trzymal metody do przetestowania
-            List<DiscoveredTestMethod> discoveredTestMethods = new List<DiscoveredTestMethod>(); 
-            foreach(var method in testClass.GetMethods())
+            foreach(var method in type.GetMethods()
+                .Where(m => m.GetCustomAttribute<TestMethodAttribute>() is not null))
             {
-                if(method.GetCustomAttribute<TestMethodAttribute>() is null)
-                    continue;
-                var testMethod = method;
-                var methodPriorityAttribute = method.GetCustomAttribute<PriorityAttribute>();
-                int methodPriority = methodPriorityAttribute?.Priority ?? 0;
-                var dataRowAttributes = method.GetCustomAttributes<DataRowAttribute>();
-               // var dataRow = dataRowAttributes?.ToArray();
-                var methodDescriptionAttribute = method.GetCustomAttribute<DescriptionAttribute>();
-                var methodDescription = methodDescriptionAttribute?.Description ?? null;
-               /* discoveredTestMethods.Add(new DiscoveredTestMethod(
-                           testMethod,
-                           methodPriority,
-                           dataRow,
-                           methodDescription
-                           )); */
-                    if (dataRowAttributes.Any())
+                var dataRows = method.GetCustomAttributes<DataRowAttribute>();
+                if (dataRows.Any())
+                {
+                    foreach(var row in dataRows)
                     {
-                        // jesli sa te atrybuty to dla kazdego zrob osobny test
-                        foreach(var dataRow in dataRowAttributes)
+                        if(method.GetParameters().Length != row.Data.Length)
                         {
-                            discoveredTestMethods.Add(new DiscoveredTestMethod(
-                                testMethod,
-                                methodPriority,
-                                dataRow.Data,
-                                methodDescription
-                                ));
+                            Console.WriteLine(" i tak sie nie wypisze xd");
+                            continue;
                         }
+                        testMethods.Add((method,row.Data)!);
                     }
-                    else
-                    {
-                        //dodaje pojedyny test i elo
-                        discoveredTestMethods.Add(new DiscoveredTestMethod(
-                            testMethod,
-                            methodPriority,
-                            null,
-                            methodDescription
-                            ));
-                    } 
+                }
+                else if (!method.GetParameters().Any())
+                {
+                    testMethods.Add((method, null));
+                }
+                else
+                {
+                    Console.WriteLine("i tak sie nie wypisze");
+                }
             }
-            discoveredTestMethods = discoveredTestMethods
-                .OrderBy(testMethod => testMethod.Priority)
-                .ThenBy(testMethod => testMethod.TestMethod.Name)
-                .ToList();
-     
-           discoveredTests.Add(discoveredTestClass,discoveredTestMethods);
-
+            yield return (type,beforeEach,afterEach,testMethods);
         }
-        return discoveredTests
-            .OrderBy(testClass => testClass.Key.Priority)
-            .ThenBy(testClass => testClass.Key.TestClass.Name)
-            .ToDictionary<DiscoveredTestClass, List<DiscoveredTestMethod>>();
     }
-
+    private static MethodInfo? FindMethodWithAttribute<T>(Type type)
+     where T : Attribute => type.GetMethods().FirstOrDefault(m => m.GetCustomAttribute<T>() is not null);
 }
 
 

@@ -1,19 +1,16 @@
-﻿using System;
+﻿using MiniTest;
+using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Reflection;
-using MiniTest;
-using System.Runtime.InteropServices;
-using System.Data;
 
 namespace MiniTestRunner;
 
 public static class TestDiscovery
 {
-    public static List<string> Warnings { get; private set; } = new();  
-    public static IEnumerable<(Type TestClass, MethodInfo? BeforeEach, MethodInfo? AfterEach,
+    public static List<string> Warnings { get; private set; } = new();
+
+    public static IEnumerable<(Type TestClass, Action<object>? BeforeEach, Action<object>? AfterEach,
         IEnumerable<(MethodInfo Method, object[]? Data)> TestMethods)> DiscoverTests(Assembly assembly)
     {
         foreach (var type in assembly.GetTypes()
@@ -24,24 +21,26 @@ public static class TestDiscovery
                 Warnings.Add($"[Warning] Skipping {type.FullName}: No parameterless constructor.");
                 continue;
             }
-            var beforeEach = FindMethodWithAttribute<BeforeEachAttribute>(type);
-            var afterEach = FindMethodWithAttribute<AfterEachAttribute>(type);
+
+            Action<object>? beforeEach = CreateInstanceActionForAttribute<BeforeEachAttribute>(type);
+            Action<object>? afterEach = CreateInstanceActionForAttribute<AfterEachAttribute>(type);
+
             var testMethods = new List<(MethodInfo Method, object[]? Data)>();
 
-            foreach(var method in type.GetMethods()
+            foreach (var method in type.GetMethods()
                 .Where(m => m.GetCustomAttribute<TestMethodAttribute>() is not null))
             {
                 var dataRows = method.GetCustomAttributes<DataRowAttribute>();
                 if (dataRows.Any())
                 {
-                    foreach(var row in dataRows)
+                    foreach (var row in dataRows)
                     {
-                        if(method.GetParameters().Length != row.Data.Length)
+                        if (method.GetParameters().Length != row.Data.Length)
                         {
-                            Warnings.Add($"[Warning] Method {method.Name} has invalid DataRow parameters");
+                            Warnings.Add($"[Warning] Method {method.Name} has invalid DataRow parameters.");
                             continue;
                         }
-                        testMethods.Add((method,row.Data)!);
+                        testMethods.Add((method, row.Data)!);
                     }
                 }
                 else if (!method.GetParameters().Any())
@@ -50,15 +49,20 @@ public static class TestDiscovery
                 }
                 else
                 {
-                   Warnings.Add($"[Warning] Method {method.Name} requires parameters but has no DataRow");
+                    Warnings.Add($"[Warning] Method {method.Name} requires parameters but has no DataRow.");
                 }
             }
-            yield return (type,beforeEach,afterEach,testMethods);
+            yield return (type, beforeEach, afterEach, testMethods);
         }
     }
-    private static MethodInfo? FindMethodWithAttribute<T>(Type type)
-     where T : Attribute => type.GetMethods().FirstOrDefault(m => m.GetCustomAttribute<T>() is not null);
+
+    private static Action<object>? CreateInstanceActionForAttribute<T>(Type type) where T : Attribute
+    {
+        var method = type.GetMethods().FirstOrDefault(m => m.GetCustomAttribute<T>() is not null);
+        if (method != null)
+        {
+            return instance => method.Invoke(instance, null);
+        }
+        return null;
+    }
 }
-
-
-

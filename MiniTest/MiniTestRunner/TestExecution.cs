@@ -10,6 +10,7 @@ public static class TestExecution
             .OrderBy(t => t.TestClass.GetCustomAttribute<PriorityAttribute>()?.Priority ?? 0)
             .ThenBy(t => t.TestClass.Name)
             .ToList();
+
         if (TestDiscovery.Warnings.Any())
         {
             Console.ForegroundColor = ConsoleColor.Yellow;
@@ -20,6 +21,7 @@ public static class TestExecution
             }
             Console.ResetColor();
         }
+
         Counter totalCounter = new Counter();
         foreach (var (testClass, beforeEach, afterEach, testMethods) in testClasses)
         {
@@ -31,12 +33,14 @@ public static class TestExecution
                 Console.WriteLine($"Description: {classDescription}");
                 Console.ResetColor();
             }
+
             Counter classCounter = new Counter();
             var testInstance = Activator.CreateInstance(testClass);
             var groupMethods = testMethods
                 .GroupBy(m => m.Method)
                 .OrderBy(m => m.Key.GetCustomAttribute<PriorityAttribute>()?.Priority ?? 0)
                 .ThenBy(m => m.Key.Name);
+
             foreach (var group in groupMethods)
             {
                 var method = group.Key;
@@ -47,7 +51,7 @@ public static class TestExecution
                 {
                     try
                     {
-                        beforeEach?.Invoke(testInstance, null);
+                        beforeEach?.Invoke(testInstance!); 
                         if (data != null)
                         {
                             RunParameterizedTest(testMethod, testInstance, data, ref classCounter);
@@ -64,10 +68,10 @@ public static class TestExecution
                     }
                     finally
                     {
-                        afterEach?.Invoke(testInstance, null);
+                        afterEach?.Invoke(testInstance!); 
                     }
-
                 }
+
                 if (!string.IsNullOrEmpty(methodDescription))
                 {
                     Console.ForegroundColor = ConsoleColor.Cyan;
@@ -75,6 +79,7 @@ public static class TestExecution
                     Console.ResetColor();
                 }
             }
+
             totalCounter.passed += classCounter.passed;
             totalCounter.failed += classCounter.failed;
             PrintClassSummary(classCounter);
@@ -95,13 +100,14 @@ public static class TestExecution
     private static void PrintGlobalSummary(Counter counter, Assembly assembly)
     {
         Console.ForegroundColor = ConsoleColor.DarkCyan;
-        Console.WriteLine($"Summary of runing tests from {assembly.GetName().Name}:");
+        Console.WriteLine($"Summary of running tests from {assembly.GetName().Name}:");
         Console.WriteLine(new string('*', 30));
         Console.WriteLine($"* Test passed: {counter.passed,6} / {counter.total,-4} *");
         Console.WriteLine($"* Failed: {counter.failed,11} {"*",30 - 11 - 11}");
         Console.WriteLine(new string('*', 30));
         Console.ResetColor();
     }
+
     private static void RunSimpleTest(MethodInfo method, object? instance, ref Counter counter)
     {
         try
@@ -131,7 +137,7 @@ public static class TestExecution
             counter.failed++;
         }
     }
-   
+
     private static void PrintTestResult(string testData, bool isPassed, string? errorMessage = null)
     {
         Console.ForegroundColor = isPassed ? ConsoleColor.Green : ConsoleColor.Red;
@@ -144,6 +150,7 @@ public static class TestExecution
         Console.ResetColor();
     }
 }
+
 public struct Counter
 {
     public int passed;

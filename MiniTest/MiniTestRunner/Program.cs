@@ -4,7 +4,6 @@ using System;
 
 namespace MiniTestRunner;
 
-
 internal class Program
 {
     static void Main(string[] args)
@@ -17,6 +16,7 @@ internal class Program
 
         ProcessAssemblies(args);
     }
+
     private static void ProcessAssemblies(string[] assemblyPaths)
     {
         foreach (var assemblyPath in assemblyPaths)
@@ -26,7 +26,8 @@ internal class Program
                 Console.Error.WriteLine($"Error: Assembly file not found at '{assemblyPath}'");
                 continue;
             }
-            var context = new AssemblyLoadContext(null, isCollectible: true);
+
+            var context = new PluginLoadContext(assemblyPath);
 
             try
             {
@@ -44,5 +45,36 @@ internal class Program
             }
         }
     }
+}
 
+public class PluginLoadContext : AssemblyLoadContext
+{
+    private readonly AssemblyDependencyResolver _resolver;
+
+    public PluginLoadContext(string pluginPath) : base(isCollectible: true)
+    {
+        _resolver = new AssemblyDependencyResolver(pluginPath);
     }
+
+    protected override Assembly? Load(AssemblyName assemblyName)
+    {
+        string? assemblyPath = _resolver.ResolveAssemblyToPath(assemblyName);
+        if (assemblyPath != null)
+        {
+            return LoadFromAssemblyPath(assemblyPath);
+        }
+
+        return null;
+    }
+
+    protected override IntPtr LoadUnmanagedDll(string unmanagedDllName)
+    {
+        string? libraryPath = _resolver.ResolveUnmanagedDllToPath(unmanagedDllName);
+        if (libraryPath != null)
+        {
+            return LoadUnmanagedDllFromPath(libraryPath);
+        }
+
+        return IntPtr.Zero;
+    }
+}

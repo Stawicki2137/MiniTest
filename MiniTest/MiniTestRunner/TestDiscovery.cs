@@ -12,6 +12,7 @@ namespace MiniTestRunner;
 
 public static class TestDiscovery
 {
+    public static List<string> Warnings { get; private set; } = new();  
     public static IEnumerable<(Type TestClass, MethodInfo? BeforeEach, MethodInfo? AfterEach,
         IEnumerable<(MethodInfo Method, object[]? Data)> TestMethods)> DiscoverTests(Assembly assembly)
     {
@@ -20,10 +21,7 @@ public static class TestDiscovery
         {
             if (type.GetConstructor(Type.EmptyTypes) is null)
             {
-                // to sie nie wypisze imo i tak ale warto sprobowac xD
-                Console.ForegroundColor = ConsoleColor.Yellow;
-                Console.WriteLine($"[Warning] Skipping {type.FullName}: No parameterless constructor.");
-                Console.ResetColor();
+                Warnings.Add($"[Warning] Skipping {type.FullName}: No parameterless constructor.");
                 continue;
             }
             var beforeEach = FindMethodWithAttribute<BeforeEachAttribute>(type);
@@ -40,7 +38,7 @@ public static class TestDiscovery
                     {
                         if(method.GetParameters().Length != row.Data.Length)
                         {
-                            Console.WriteLine(" i tak sie nie wypisze xd");
+                            Warnings.Add($"[Warning] Method {method.Name} has invalid DataRow parameters");
                             continue;
                         }
                         testMethods.Add((method,row.Data)!);
@@ -52,7 +50,7 @@ public static class TestDiscovery
                 }
                 else
                 {
-                    Console.WriteLine("i tak sie nie wypisze");
+                   Warnings.Add($"[Warning] Method {method.Name} requires parameters but has no DataRow");
                 }
             }
             yield return (type,beforeEach,afterEach,testMethods);

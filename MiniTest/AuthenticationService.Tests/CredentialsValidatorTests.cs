@@ -42,7 +42,7 @@ public class CredentialsValidatorTests
     [DataRow("hello_kitty_", Description = "hello_kitty_")]
     [DataRow("smiley2137", Description = "smiley2137")]
     [DataRow("qwertyqwerty", Description = "qwertyqwerty")]
-    [DataRow("ONLY_CAPSLOCK", Description = "ONLY_CAPSLOCK")]
+    [DataRow("ONLY_CAPSLOCK", Description = "ONLY_CAPSLOCK")] 
     [TestMethod]
     [Description("These username contain only legal characters ([a-zA-Z0-9_])\n" +
                  "  and have correct length (8-32)")]

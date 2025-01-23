@@ -1,6 +1,6 @@
-﻿using System.Reflection;
-using System.Runtime.Loader;
-using System;
+﻿using System;
+using System.IO;
+using System.Reflection;
 
 namespace MiniTestRunner;
 
@@ -14,12 +14,10 @@ internal class Program
             Environment.Exit(1);
         }
 
-        ProcessAssemblies(args);
-    }
+        // Obsługa zdarzenia AssemblyResolve
+        AppDomain.CurrentDomain.AssemblyResolve += ResolveAssembly;
 
-    private static void ProcessAssemblies(string[] assemblyPaths)
-    {
-        foreach (var assemblyPath in assemblyPaths)
+        foreach (var assemblyPath in args)
         {
             if (!File.Exists(assemblyPath))
             {
@@ -27,54 +25,41 @@ internal class Program
                 continue;
             }
 
-            var context = new PluginLoadContext(assemblyPath);
-
             try
             {
-                var assembly = context.LoadFromAssemblyPath(assemblyPath);
+                // Ładujemy główny zestaw
+                var assembly = Assembly.LoadFrom(assemblyPath);
                 Console.WriteLine($"\nRunning tests in '{assembly.FullName}'...");
+
+                // Uruchamiamy testy
                 TestExecution.RunTests(assembly);
             }
             catch (Exception ex)
             {
                 Console.Error.WriteLine($"Error running tests in '{assemblyPath}': {ex.Message}");
             }
-            finally
-            {
-                context.Unload();
-            }
         }
     }
-}
 
-public class PluginLoadContext : AssemblyLoadContext
-{
-    private readonly AssemblyDependencyResolver _resolver;
-
-    public PluginLoadContext(string pluginPath) : base(isCollectible: true)
+    private static Assembly? ResolveAssembly(object? sender, ResolveEventArgs args)
     {
-        _resolver = new AssemblyDependencyResolver(pluginPath);
-    }
+        // Wyciągamy nazwę zestawu
+        var assemblyName = new AssemblyName(args.Name);
+        Console.WriteLine($"[AssemblyResolve] Resolving: {assemblyName.Name}");
 
-    protected override Assembly? Load(AssemblyName assemblyName)
-    {
-        string? assemblyPath = _resolver.ResolveAssemblyToPath(assemblyName);
-        if (assemblyPath != null)
+        // Lokalizujemy ścieżkę do zestawu
+        var baseDirectory = AppDomain.CurrentDomain.BaseDirectory;
+        var potentialPath = Path.Combine(baseDirectory, assemblyName.Name + ".dll");
+
+        // Jeśli plik istnieje, ładowanie zestawu
+        if (File.Exists(potentialPath))
         {
-            return LoadFromAssemblyPath(assemblyPath);
+            Console.WriteLine($"[AssemblyResolve] Found and loading: {potentialPath}");
+            return Assembly.LoadFrom(potentialPath);
         }
 
+        // Zwracamy null, jeśli nie znaleziono zestawu
+        Console.WriteLine($"[AssemblyResolve] Not found: {assemblyName.Name}");
         return null;
-    }
-
-    protected override IntPtr LoadUnmanagedDll(string unmanagedDllName)
-    {
-        string? libraryPath = _resolver.ResolveUnmanagedDllToPath(unmanagedDllName);
-        if (libraryPath != null)
-        {
-            return LoadUnmanagedDllFromPath(libraryPath);
-        }
-
-        return IntPtr.Zero;
     }
 }
